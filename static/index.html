@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video AI Agent 🎥</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0a0a0f', 800: '#12121a', 700: '#1a1a25', 600: '#252532' },
+                        accent: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0d0d14 100%);
+            min-height: 100vh;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-strong {
+            background: rgba(18, 18, 26, 0.9);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); } 50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.5); } }
+        @keyframes typing { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+        .animate-pulse-glow { animation: pulse-glow 2s infinite; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        
+        .typing-indicator::after {
+            content: '...';
+            animation: typing 1.5s infinite;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        /* Markdown Styles */
+        .prose { color: #e2e8f0; }
+        .prose h1, .prose h2, .prose h3 { color: #818cf8; margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; }
+        .prose h2 { font-size: 1.25em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.25em; }
+        .prose h3 { font-size: 1.1em; }
+        .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 1em; }
+        .prose li { margin-bottom: 0.3em; }
+        .prose code { background: rgba(99, 102, 241, 0.2); padding: 0.15em 0.4em; border-radius: 6px; font-size: 0.85em; color: #a5b4fc; }
+        .prose pre { background: rgba(0,0,0,0.3); padding: 1em; border-radius: 12px; overflow-x: auto; margin: 1em 0; border: 1px solid rgba(255,255,255,0.05); }
+        .prose pre code { background: transparent; padding: 0; color: #e2e8f0; }
+        .prose strong { color: #c7d2fe; font-weight: 600; }
+        .prose blockquote { border-left: 3px solid #6366f1; padding-left: 1em; color: #94a3b8; background: rgba(99, 102, 241, 0.1); padding: 0.75em 1em; border-radius: 0 8px 8px 0; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+        .prose th, .prose td { border: 1px solid rgba(255,255,255,0.1); padding: 0.75em; }
+        .prose th { background: rgba(99, 102, 241, 0.2); }
+        .prose em { color: #93c5fd; font-style: italic; }
+
+        /* File Attachment */
+        .file-attachment {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
+            background: rgba(99, 102, 241, 0.15);
+            padding: 0.6em 1em;
+            border-radius: 12px;
+            margin: 0.5em 0;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            transition: all 0.2s;
+        }
+        .file-attachment:hover { background: rgba(99, 102, 241, 0.25); }
+
+        /* Message Styles */
+        .message-wrapper { animation: fadeIn 0.3s ease-out; }
+        .message-wrapper.user { flex-direction: row-reverse; }
+        
+        .message-bubble {
+            max-width: 85%;
+            padding: 1rem 1.25rem;
+            border-radius: 20px;
+            position: relative;
+        }
+        .message-bubble.user {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border-bottom-right-radius: 4px;
+        }
+        .message-bubble.assistant {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Input Area */
+        .input-area {
+            background: rgba(18, 18, 26, 0.8);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .input-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .input-box:focus-within {
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            transition: all 0.3s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            transition: all 0.3s;
+        }
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-icon {
+            transition: all 0.2s;
+        }
+        .btn-icon:hover {
+            background: rgba(255,255,255,0.1);
+            transform: scale(1.05);
+        }
+
+        /* Sidebar Chat Item */
+        .chat-item {
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .chat-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: linear-gradient(180deg, #6366f1, #4f46e5);
+            transform: scaleY(0);
+            transition: transform 0.2s;
+        }
+        .chat-item.active::before { transform: scaleY(1); }
+        .chat-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+        .chat-item.loading {
+            background: rgba(99, 102, 241, 0.08);
+        }
+        .chat-item.loading::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Toast */
+        .toast {
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Loading Dots */
+        .loading-dots span {
+            animation: float 1.4s infinite both;
+            width: 6px;
+            height: 6px;
+            background: #6366f1;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        /* Modal */
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+            .sidebar.open { transform: translateX(0); }
+            .message-bubble { max-width: 95%; }
+        }
+    </style>
+</head>
+<body class="text-white overflow-hidden">
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="glass-strong p-10 rounded-3xl w-full max-w-md mx-4 shadow-2xl animate-fadeIn">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-3xl mb-6 animate-float">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <h2 id="auth-title" class="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Вход</h2>
+                <p class="text-gray-400 text-sm mt-3">Video AI Agent для создания конспектов</p>
+            </div>
+            <form id="auth-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2.5 ml-1">Имя пользователя</label>
+                    <input type="text" id="auth-username" placeholder="username" autocomplete="username"
+                           class="w-full glass px-5 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition text-white placeholder-gray-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2.5 ml-1">Пароль</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password"
+                           class="w-full glass px-5 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition text-white placeholder-gray-500">
+                </div>
+                <button type="submit" class="w-full btn-primary py-4 rounded-2xl font-semibold text-white shadow-lg shadow-indigo-500/30">
+                    Войти
+                </button>
+            </form>
+            <p class="text-center mt-8 text-gray-400 text-sm">
+                <span id="auth-switch-text">Нет аккаунта?</span>
+                <button id="auth-switch" class="text-indigo-400 hover:text-indigo-300 font-medium ml-2 transition">Зарегистрироваться</button>
+            </p>
+            <p id="auth-error" class="text-red-400 text-center mt-5 text-sm glass px-4 py-3 rounded-xl hidden border border-red-500/20"></p>
+        </div>
+    </div>
+
+    <!-- Delete Account Modal -->
+    <div id="delete-account-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50">
+        <div class="glass-strong p-8 rounded-3xl w-full max-w-md mx-4 shadow-2xl animate-fadeIn border border-red-500/20">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-red-500/20 rounded-2xl mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">Удалить аккаунт?</h3>
+                <p class="text-gray-400 text-sm">Это действие необратимо. Все чаты и данные будут удалены.</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="cancel-delete-btn" class="flex-1 glass py-3.5 rounded-xl font-semibold text-gray-300 hover:bg-white/10 transition">
+                    Отмена
+                </button>
+                <button id="confirm-delete-btn" class="flex-1 btn-danger py-3.5 rounded-xl font-semibold text-white shadow-lg shadow-red-500/30">
+                    Удалить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="hidden flex h-screen">
+        <!-- Mobile Menu Button -->
+        <button id="menu-btn" class="lg:hidden fixed top-5 left-5 z-50 glass p-3 rounded-2xl btn-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar w-80 glass-strong border-r border-white/5 flex flex-col lg:flex fixed lg:relative h-full z-40">
+            <div class="p-6 border-b border-white/5">
+                <div class="flex items-center gap-4 mb-5">
+                    <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">Video AI</h1>
+                        <p class="text-xs text-gray-500">Конспекты лекций</p>
+                    </div>
+                </div>
+                <div class="glass p-4 rounded-2xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="user-avatar" class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center font-bold text-white">U</div>
+                        <span id="user-display" class="text-sm font-medium text-gray-200"></span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button id="delete-account-btn" class="text-gray-400 hover:text-red-400 transition btn-icon p-2 rounded-lg" title="Удалить аккаунт">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                        <button id="logout-btn" class="text-gray-400 hover:text-red-400 transition btn-icon p-2 rounded-lg" title="Выйти">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                        <button id="settings-btn" class="text-gray-400 hover:text-indigo-400 transition btn-icon p-2 rounded-lg" title="Настройки">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="new-chat-btn" class="mx-5 mt-5 btn-primary py-3.5 rounded-2xl text-sm font-semibold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Новый чат
+            </button>
+            
+            <div class="px-6 mt-6">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">История</p>
+                    <span id="chat-count" class="text-xs text-gray-600 bg-gray-800 px-2 py-1 rounded-full">0</span>
+                </div>
+            </div>
+            <div id="chats-list" class="flex-1 overflow-y-auto px-3 pb-4 space-y-1.5">
+                <!-- Чаты будут здесь -->
+            </div>
+            
+            <div class="p-5 border-t border-white/5">
+                <div class="glass p-4 rounded-2xl">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div id="status-dot" class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span id="status-text" class="text-xs text-gray-400">Готов к работе</span>
+                    </div>
+                    <p class="text-xs text-gray-600">Powered by Whisper + LLM</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Overlay for mobile -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 hidden lg:hidden"></div>
+
+        <!-- Chat Area -->
+        <main class="flex-1 flex flex-col min-w-0">
+            <!-- Chat Header -->
+            <header class="h-20 glass-strong border-b border-white/5 flex items-center justify-between px-8">
+                <div class="flex items-center gap-4">
+                    <div id="chat-status-dot" class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <div>
+                        <h2 id="chat-title" class="font-semibold text-lg text-white truncate max-w-md">Новый чат</h2>
+                        <p id="chat-subtitle" class="text-xs text-gray-500">Готов к работе</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="agent-selector" class="glass px-3 py-1.5 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                        <option value="transcript">🎥 Транскрайбер</option>
+                        <option value="assistant">💬 Помощник</option>
+                        <option value="rag">🧠 RAG (скоро)</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="export-btn" class="btn-icon glass p-3 rounded-xl text-gray-400 hover:text-white" title="Экспорт">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </button>
+                    <button id="delete-chat-btn" class="btn-icon glass p-3 rounded-xl text-gray-400 hover:text-red-400" title="Удалить чат">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages -->
+            <div id="chat" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="flex items-start gap-4 max-w-3xl animate-fadeIn">
+                    <div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="message-bubble assistant">
+                            <p class="text-gray-200 leading-relaxed">Привет! 👋<br><br>Я помогу создать <strong>подробный конспект</strong> вашей видео-лекции. Просто прикрепите файл и я:<br><br>• 📝 Распознаю речь<br>• 📚 Выделю ключевые темы<br>• 🎯 Создам структурированный конспект<br>• ⏰ Отмечу дедлайны и задания</p>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2.5 text-xs text-gray-500 ml-2">
+                            <span>Video AI Agent</span>
+                            <span>•</span>
+                            <span id="welcome-time"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area p-6">
+                <div class="max-w-4xl mx-auto">
+                    <!-- File Previews -->
+                    <div id="file-previews" class="flex flex-wrap gap-3 mb-4"></div>
+                    
+                    <form id="chat-form" class="input-box rounded-3xl p-3 flex items-end gap-3">
+                        <label class="cursor-pointer btn-icon p-3.5 rounded-2xl text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                            <input type="file" id="file-input" class="hidden" accept="video/*,audio/*,.mp3,.wav,.m4a,.flac,.mp4,.avi,.mov,.mkv,.webm">
+                        </label>
+
+                        <textarea id="text-input" placeholder="Введите сообщение или прикрепите видео лекции..." 
+                               class="flex-1 bg-transparent border-none focus:outline-none text-white px-3 py-3 resize-none max-h-40 min-h-[50px] placeholder-gray-500"
+                               rows="1"></textarea>
+
+                        <button type="submit" id="send-btn" class="btn-primary p-3.5 rounded-2xl shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </form>
+                    
+                    <p class="text-xs text-gray-600 text-center mt-4 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Видео обрабатываются локально • Конфиденциально
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast fixed bottom-8 right-8 glass-strong px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 z-50 border border-green-500/20">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span id="toast-message" class="text-sm font-medium">Готово!</span>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center z-50">
+        <div class="glass-strong p-8 rounded-3xl w-full max-w-lg mx-4 shadow-2xl animate-fadeIn">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-white">🔑 API Токены</h3>
+                <button id="close-settings" class="text-gray-400 hover:text-white btn-icon p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">🤗 Hugging Face Token</label>
+                    <input type="password" id="hf-token" placeholder="hf_..." class="w-full glass px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white">
+                    <p class="text-xs text-gray-500 mt-1">Нужен для транскрибации видео через Whisper</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">🦙 Ollama API Key (опционально)</label>
+                    <input type="password" id="ollama-token" placeholder="..." class="w-full glass px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button id="save-tokens-btn" class="flex-1 btn-primary py-3 rounded-xl font-semibold">Сохранить</button>
+                    <button id="clear-tokens-btn" class="flex-1 glass py-3 rounded-xl font-semibold text-gray-300">Очистить</button>
+                </div>
+                <div id="token-status" class="text-sm text-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === State ===
+        let token = localStorage.getItem('token');
+        let currentUser = null;
+        let currentChatId = null;
+        let chats = [];
+        let isRegisterMode = false;
+        let selectedFiles = [];
+        
+        // ✅ Per-chat input state - каждый чат независим
+        const chatStates = {};
+
+        // === Elements ===
+        const authModal = document.getElementById('auth-modal');
+        const deleteAccountModal = document.getElementById('delete-account-modal');
+        const app = document.getElementById('app');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const menuBtn = document.getElementById('menu-btn');
+        const authForm = document.getElementById('auth-form');
+        const authTitle = document.getElementById('auth-title');
+        const authSwitch = document.getElementById('auth-switch');
+        const authSwitchText = document.getElementById('auth-switch-text');
+        const authError = document.getElementById('auth-error');
+        const userDisplay = document.getElementById('user-display');
+        const userAvatar = document.getElementById('user-avatar');
+        const logoutBtn = document.getElementById('logout-btn');
+        const deleteAccountBtn = document.getElementById('delete-account-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const chatsList = document.getElementById('chats-list');
+        const chatCount = document.getElementById('chat-count');
+        const chat = document.getElementById('chat');
+        const chatTitle = document.getElementById('chat-title');
+        const chatSubtitle = document.getElementById('chat-subtitle');
+        const chatStatusDot = document.getElementById('chat-status-dot');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const chatForm = document.getElementById('chat-form');
+        const fileInput = document.getElementById('file-input');
+        const filePreviews = document.getElementById('file-previews');
+        const sendBtn = document.getElementById('send-btn');
+        const textInput = document.getElementById('text-input');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        const exportBtn = document.getElementById('export-btn');
+        const deleteChatBtn = document.getElementById('delete-chat-btn');
+
+        // Set welcome time
+        document.getElementById('welcome-time').textContent = new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+
+        // === Auth Functions ===
+        async function apiRequest(endpoint, method = 'GET', body = null, useAuth = true) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (useAuth && token) headers['Authorization'] = `Bearer ${token}`;
+            
+            const options = { method, headers };
+            if (body && method !== 'GET') options.body = JSON.stringify(body);
+            
+            const res = await fetch(endpoint, options);
+            if (res.status === 401) {
+                logout();
+                throw new Error('Unauthorized');
+            }
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'Ошибка запроса');
+            }
+            return res.json();
+        }
+
+        async function checkAuth() {
+            if (!token) {
+                showAuth();
+                return;
+            }
+            try {
+                currentUser = await apiRequest('/auth/me');
+                userDisplay.textContent = currentUser.username;
+                userAvatar.textContent = currentUser.username[0].toUpperCase();
+                hideAuth();
+                loadChats();
+            } catch (e) {
+                logout();
+            }
+        }
+
+        function showAuth() {
+            authModal.classList.remove('hidden');
+            app.classList.add('hidden');
+        }
+
+        function hideAuth() {
+            authModal.classList.add('hidden');
+            app.classList.remove('hidden');
+        }
+
+        function logout() {
+            token = null;
+            currentUser = null;
+            currentChatId = null;
+            localStorage.removeItem('token');
+            showAuth();
+        }
+
+        authSwitch.onclick = () => {
+            isRegisterMode = !isRegisterMode;
+            authTitle.textContent = isRegisterMode ? 'Регистрация' : 'Вход';
+            authSwitch.textContent = isRegisterMode ? 'Войти' : 'Зарегистрироваться';
+            authSwitchText.textContent = isRegisterMode ? 'Есть аккаунт?' : 'Нет аккаунта?';
+            authError.classList.add('hidden');
+        };
+
+        authForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            
+            if (!username || !password) {
+                authError.textContent = 'Заполните все поля';
+                authError.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Ошибка');
+                
+                if (isRegisterMode) {
+                    const loginRes = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const loginData = await loginRes.json();
+                    token = loginData.access_token;
+                } else {
+                    token = data.access_token;
+                }
+                
+                localStorage.setItem('token', token);
+                currentUser = await apiRequest('/auth/me');
+                userDisplay.textContent = currentUser.username;
+                userAvatar.textContent = currentUser.username[0].toUpperCase();
+                hideAuth();
+                loadChats();
+            } catch (err) {
+                authError.textContent = err.message;
+                authError.classList.remove('hidden');
+            }
+        };
+
+        logoutBtn.onclick = logout;
+        
+        menuBtn.onclick = () => {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('hidden');
+        };
+
+        sidebarOverlay.onclick = () => {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.add('hidden');
+        };
+
+        // === Delete Account ===
+        deleteAccountBtn.onclick = () => {
+            deleteAccountModal.classList.remove('hidden');
+        };
+
+        cancelDeleteBtn.onclick = () => {
+            deleteAccountModal.classList.add('hidden');
+        };
+
+        confirmDeleteBtn.onclick = async () => {
+            try {
+                // TODO: Add delete account endpoint to backend
+                const res = await fetch('/auth/delete', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    logout();
+                    showToast('Аккаунт удалён');
+                } else {
+                    throw new Error('Не удалось удалить аккаунт');
+                }
+            } catch (err) {
+                showToast(err.message);
+            } finally {
+                deleteAccountModal.classList.add('hidden');
+            }
+        };
+
+        // === Chat Functions ===
+        async function loadChats() {
+            try {
+                chats = await apiRequest('/chats/');
+                renderChatsList();
+                chatCount.textContent = chats.length;
+                if (chats.length > 0 && !currentChatId) {
+                    selectChat(chats[0].id);
+                } else if (chats.length === 0) {
+                    createNewChat();
+                }
+            } catch (e) {
+                console.error('Failed to load chats:', e);
+            }
+        }
+
+        function renderChatsList() {
+            if (chats.length === 0) {
+                chatsList.innerHTML = '<div class="text-center py-12"><p class="text-gray-500 text-sm">Нет чатов</p><p class="text-gray-600 text-xs mt-2">Создайте первый чат</p></div>';
+                return;
+            }
+            chatsList.innerHTML = chats.map(c => {
+                const state = getChatState(c.id);
+                return `
+                <div class="chat-item group flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition border border-transparent ${c.id === currentChatId ? 'active' : 'hover:bg-white/5 hover:border-white/5'} ${state.loading ? 'loading' : ''}" 
+                     data-chat-id="${c.id}">
+                    <div class="flex items-center gap-3 flex-1 min-w-0" onclick="selectChat(${c.id})">
+                        <div class="w-9 h-9 bg-white/5 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-500/20 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 group-hover:text-indigo-400 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                        </div>
+                        <span class="text-sm truncate text-gray-300 group-hover:text-white transition">${escapeHtml(c.title)}</span>
+                    </div>
+                    <button class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition" 
+                            onclick="event.stopPropagation(); deleteChat(${c.id})">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+            `}).join('');
+        }
+
+        async function selectChat(chatId) {
+            currentChatId = chatId;
+            renderChatsList();
+            
+            // ✅ Load per-chat input state
+            const state = getChatState(chatId);
+            textInput.value = state.input || '';
+            selectedFiles = state.files || [];
+            renderFilePreviews();
+            updateSendButton();
+            
+            // ✅ Update chat header status based on this chat's state
+            updateChatHeader(state);
+            
+            try {
+                const data = await apiRequest(`/chats/${chatId}`);
+                chatTitle.textContent = data.chat.title;
+                chatSubtitle.textContent = `${data.messages.length} сообщений`;
+                renderMessages(data.messages);
+            } catch (e) {
+                console.error('Failed to load chat:', e);
+            }
+        }
+
+        function updateChatHeader(state) {
+            if (state.loading) {
+                chatStatusDot.classList.remove('bg-green-500');
+                chatStatusDot.classList.add('bg-yellow-500', 'animate-pulse');
+                chatSubtitle.textContent = 'Обработка...';
+                statusText.textContent = 'Обработка в чате...';
+            } else {
+                chatStatusDot.classList.add('bg-green-500');
+                chatStatusDot.classList.remove('bg-yellow-500', 'animate-pulse');
+                const msgCount = chat.querySelectorAll('.message-wrapper').length;
+                chatSubtitle.textContent = `${msgCount} сообщений`;
+                statusText.textContent = 'Готов к работе';
+            }
+        }
+
+        function renderMessages(messages) {
+            chat.innerHTML = '';
+            if (messages.length === 0) {
+                chat.innerHTML = `
+                    <div class="flex items-start gap-4 max-w-3xl animate-fadeIn">
+                        <div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="message-bubble assistant">
+                                <p class="text-gray-200 leading-relaxed">Привет! 👋<br><br>Прикрепите видео или аудио лекции, и я создам подробный конспект.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            messages.forEach(msg => addMessage(msg.content, msg.role, msg.file_path, msg.created_at, false));
+        }
+
+        async function createNewChat() {
+            try {
+                const formData = new FormData();
+                formData.append('title', 'Новый чат');
+                
+                const res = await fetch('/chats/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!res.ok) throw new Error('Ошибка создания чата');
+                const newChat = await res.json();
+                
+                chats.unshift(newChat);
+                chatStates[newChat.id] = { input: '', files: [], loading: false };
+                selectChat(newChat.id);
+            } catch (e) {
+                console.error('Failed to create chat:', e);
+            }
+        }
+
+        async function deleteChat(chatId) {
+            if (!confirm('Удалить этот чат?')) return;
+            try {
+                await apiRequest(`/chats/${chatId}`, 'DELETE');
+                chats = chats.filter(c => c.id !== chatId);
+                // ✅ Clean up state
+                delete chatStates[chatId];
+                if (currentChatId === chatId) {
+                    currentChatId = null;
+                    if (chats.length > 0) selectChat(chats[0].id);
+                    else createNewChat();
+                } else {
+                    renderChatsList();
+                    chatCount.textContent = chats.length;
+                }
+            } catch (e) {
+                console.error('Failed to delete chat:', e);
+            }
+        }
+
+        newChatBtn.onclick = createNewChat;
+        
+        exportBtn.onclick = async () => {
+            if (!currentChatId) return;
+            try {
+                const data = await apiRequest(`/chats/${currentChatId}`);
+                const text = data.messages.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n\n');
+                navigator.clipboard.writeText(text);
+                showToast('Скопировано в буфер');
+            } catch (e) {
+                showToast('Ошибка экспорта');
+            }
+        };
+
+        deleteChatBtn.onclick = () => {
+            if (currentChatId) deleteChat(currentChatId);
+        };
+
+        // ✅ Per-chat state management
+        function getChatState(chatId) {
+            if (!chatStates[chatId]) {
+                chatStates[chatId] = { input: '', files: [], loading: false };
+            }
+            return chatStates[chatId];
+        }
+
+        function saveChatState(chatId) {
+            if (!chatStates[chatId]) chatStates[chatId] = {};
+            chatStates[chatId].input = textInput.value;
+            chatStates[chatId].files = [...selectedFiles];
+        }
+
+        // === Message Functions ===
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'webm'];
+            const audioExts = ['mp3', 'wav', 'm4a', 'flac', 'ogg'];
+            
+            if (videoExts.includes(ext)) {
+                return `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`;
+            } else if (audioExts.includes(ext)) {
+                return `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>`;
+            }
+            return `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`;
+        }
+
+        function formatTime(dateStr) {
+            return new Date(dateStr).toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function addMessage(text, role, filePath = null, timestamp = null, scroll = true) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper flex items-start gap-4 max-w-3xl ${role === 'user' ? 'user ml-auto' : ''}`;
+            
+            const avatar = role === 'user' 
+                ? `<div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30"><span class="text-white font-bold text-sm">${currentUser?.username[0]?.toUpperCase() || 'U'}</span></div>`
+                : `<div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg></div>`;
+            
+            const fileHtml = filePath ? `
+                <div class="file-attachment mb-3">
+                    ${getFileIcon(filePath)}
+                    <span class="text-sm text-gray-200">${filePath.split('/').pop()}</span>
+                </div>
+            ` : '';
+            
+            const contentHtml = role === 'assistant' 
+                ? marked.parse(text) 
+                : escapeHtml(text).replace(/\n/g, '<br>');
+            
+            const time = timestamp ? formatTime(timestamp) : new Date().toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+            
+            const messageContent = `
+                <div class="flex-1">
+                    <div class="message-bubble ${role}">
+                        ${fileHtml}
+                        <div class="prose prose-invert max-w-none">${contentHtml}</div>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2.5 text-xs text-gray-500 ${role === 'user' ? 'justify-end mr-2' : 'ml-2'}">
+                        <span>${role === 'user' ? 'Вы' : 'Video AI'}</span>
+                        <span>•</span>
+                        <span>${time}</span>
+                        ${role === 'assistant' ? `
+                            <span>•</span>
+                            <button class="btn-icon p-1 rounded hover:bg-white/10" onclick="copyMessage(this)" title="Копировать">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            wrapper.innerHTML = avatar + messageContent;
+            chat.appendChild(wrapper);
+            
+            wrapper.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+            
+            if (scroll) chat.scrollTop = chat.scrollHeight;
+        }
+
+        function addLoadingMessage(agentType = 'transcript') {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper flex items-start gap-4 max-w-3xl';
+            wrapper.id = 'loading-message';
+            const agentNames = {
+                'transcript': '🎥 Транскрайбер',
+                'assistant': '💬 Помощник',
+                'rag': '🧠 RAG Агент'
+            };
+            const agentSteps = {
+                'transcript': [
+                    '📁 Загрузка файла...',
+                    '🔊 Транскрибация аудио...',
+                    '📝 Анализ транскрипции...',
+                    '✨ Создание конспекта...'
+                ],
+                'assistant': [
+                    '💭 Обработка запроса...',
+                    '✨ Генерация ответа...'
+                ],
+                'rag': [
+                    '🔍 Поиск в графе знаний...',
+                    '🧩 Синтез информации...',
+                    '✨ Генерация ответа...'
+                ]
+            };
+            const steps = agentSteps[agentType] || agentSteps['assistant'];
+            wrapper.innerHTML = `
+        <div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        </div>
+        <div class="flex-1">
+        <div class="message-bubble assistant">
+        <div class="flex items-center gap-2 mb-3">
+        <span class="text-indigo-400 font-semibold">${agentNames[agentType] || 'Агент'}</span>
+        <span class="text-xs text-gray-500">в работе</span>
+        </div>
+        <div class="space-y-2" id="processing-steps">
+        ${steps.map((step, i) => `
+        <div class="flex items-center gap-2 text-sm ${i === 0 ? 'text-indigo-400' : 'text-gray-500'}" data-step="${i}">
+        <div class="w-4 h-4 rounded-full ${i === 0 ? 'bg-indigo-500 animate-pulse' : 'bg-gray-700'}"></div>
+        <span>${step}</span>
+        </div>
+        `).join('')}
+        </div>
+        </div>
+        </div>
+        `;
+            chat.appendChild(wrapper);
+            chat.scrollTop = chat.scrollHeight;
+            return wrapper;
+        }
+
+        function updateProcessingStep(stepIndex) {
+            const steps = document.querySelectorAll('#processing-steps [data-step]');
+            steps.forEach((step, i) => {
+                const dot = step.querySelector('div');
+                const text = step.querySelector('span');
+                if (i < stepIndex) {
+                    dot.className = 'w-4 h-4 rounded-full bg-green-500';
+                    text.className = 'text-green-400 line-through';
+                } else if (i === stepIndex) {
+                    dot.className = 'w-4 h-4 rounded-full bg-indigo-500 animate-pulse';
+                    text.className = 'text-indigo-400';
+                } else {
+                    dot.className = 'w-4 h-4 rounded-full bg-gray-700';
+                    text.className = 'text-gray-500';
+                }
+            });
+        }
+
+        function removeLoadingMessage() {
+            const loading = document.getElementById('loading-message');
+            if (loading) loading.remove();
+        }
+
+        function copyMessage(btn) {
+            const message = btn.closest('.message-wrapper').querySelector('.prose').innerText;
+            navigator.clipboard.writeText(message);
+            showToast('Скопировано');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // === File Handling ===
+        fileInput.onchange = () => {
+            const files = Array.from(fileInput.files);
+            files.forEach(file => {
+                if (!selectedFiles.find(f => f.name === file.name)) {
+                    selectedFiles.push(file);
+                }
+            });
+            renderFilePreviews();
+            saveChatState(currentChatId);
+            updateSendButton();
+            fileInput.value = '';
+        };
+
+        function renderFilePreviews() {
+            if (selectedFiles.length === 0) {
+                filePreviews.innerHTML = '';
+                return;
+            }
+            filePreviews.innerHTML = selectedFiles.map((file, index) => `
+                <div class="flex items-center gap-2.5 glass px-4 py-2.5 rounded-xl border border-indigo-500/20 animate-fadeIn">
+                    ${getFileIcon(file.name)}
+                    <span class="text-sm text-gray-300 max-w-[180px] truncate">${file.name}</span>
+                    <span class="text-xs text-gray-500">${(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <button onclick="removeFile(${index})" class="text-gray-400 hover:text-red-400 btn-icon p-1 rounded-lg hover:bg-red-500/10 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFilePreviews();
+            saveChatState(currentChatId);
+            updateSendButton();
+        }
+
+        // Auto-resize textarea
+        textInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+            // ✅ Save input per chat
+            if (currentChatId) saveChatState(currentChatId);
+        });
+
+        function updateSendButton() {
+            const hasContent = textInput.value.trim() || selectedFiles.length > 0;
+            sendBtn.disabled = !hasContent;
+        }
+
+        textInput.addEventListener('input', updateSendButton);
+
+        // === WebSocket Connection ===
+        let ws = null;
+        let wsReconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        function connectWebSocket(chatId) {
+            if (ws) {
+                ws.close();
+            }
+            
+            const wsUrl = `ws://${window.location.host}/ws/progress/${chatId}?token=${token}`;
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('✅ WebSocket подключено');
+                wsReconnectAttempts = 0;
+                // Heartbeat
+                const heartbeat = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send('ping');
+                    } else {
+                        clearInterval(heartbeat);
+                    }
+                }, 30000);
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'progress') {
+                    updateProcessingStep(data.step - 1, data.message, data.status);
+                }
+            };
+            
+            ws.onclose = () => {
+                console.log('❌ WebSocket отключено');
+                // Авто-реконнект
+                if (wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS && currentChatId) {
+                    wsReconnectAttempts++;
+                    setTimeout(() => connectWebSocket(currentChatId), 2000 * wsReconnectAttempts);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket ошибка:', error);
+            };
+        }
+
+        function updateProcessingStep(stepIndex, message = null, status = 'processing') {
+            const steps = document.querySelectorAll('#processing-steps [data-step]');
+            steps.forEach((step, i) => {
+                const dot = step.querySelector('div');
+                const text = step.querySelector('span');
+                
+                if (i < stepIndex) {
+                    dot.className = 'w-4 h-4 rounded-full bg-green-500';
+                    text.className = 'text-green-400 line-through';
+                } else if (i === stepIndex) {
+                    dot.className = 'w-4 h-4 rounded-full bg-indigo-500 animate-pulse';
+                    text.className = 'text-indigo-400';
+                    // ✅ Обновляем текст если есть
+                    if (message) {
+                        text.textContent = message;
+                    }
+                } else {
+                    dot.className = 'w-4 h-4 rounded-full bg-gray-700';
+                    text.className = 'text-gray-500';
+                }
+            });
+            
+            // ✅ Если завершено
+            if (status === 'completed') {
+                setTimeout(() => {
+                    removeLoadingMessage();
+                }, 500);
+            }
+            
+            // ✅ Если ошибка
+            if (status === 'error') {
+                setTimeout(() => {
+                    removeLoadingMessage();
+                }, 500);
+            }
+        }
+
+        // === Send Message ===
+        chatForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const text = textInput.value.trim();
+            if (!text && selectedFiles.length === 0) return;
+            
+            if (!currentChatId) {
+                await createNewChat();
+                if (!currentChatId) {
+                    addMessage("❌ Ошибка: не удалось создать чат", 'assistant');
+                    return;
+                }
+            }
+            
+            const state = getChatState(currentChatId);
+            if (state.loading) return;
+            state.loading = true;
+            renderChatsList();
+            updateChatHeader(state);
+            updateSendButton();
+            
+            if (selectedFiles.length > 0) {
+                selectedFiles.forEach(file => {
+                    addMessage(text || `Файл: ${file.name}`, 'user', file.name);
+                });
+            } else {
+                addMessage(text, 'user');
+            }
+            
+            const formData = new FormData();
+            formData.append('text', text || 'Проанализируй прикрепленные файлы');
+            formData.append('agent_type', currentAgentType);
+            if (selectedFiles.length > 0) {
+                formData.append('file', selectedFiles[0]);
+            }
+            
+            textInput.value = '';
+            textInput.style.height = 'auto';
+            selectedFiles = [];
+            renderFilePreviews();
+            saveChatState(currentChatId);
+            updateSendButton();
+            
+            const loadingMessage = addLoadingMessage(currentAgentType);
+            
+            // ✅ Подключаем WebSocket для прогресса
+            connectWebSocket(currentChatId);
+            
+            try {
+                const res = await fetch(`/chats/${currentChatId}/message`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Ошибка запроса');
+                }
+                
+                const data = await res.json();
+                addMessage(data.answer, 'assistant');
+                loadChats();
+                
+                // ✅ Закрываем WebSocket после завершения
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+                
+            } catch (err) {
+                // ✅ Отправляем ошибку через WebSocket
+                if (ws) {
+                    ws.send(JSON.stringify({ type: 'error', message: err.message }));
+                    ws.close();
+                    ws = null;
+                }
+                removeLoadingMessage();
+                addMessage("❌ Ошибка: " + err.message, 'assistant');
+            } finally {
+                state.loading = false;
+                renderChatsList();
+                updateChatHeader(state);
+                updateSendButton();
+            }
+        };
+
+        // === Keyboard Shortcuts ===
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!sendBtn.disabled) chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // === Init ===
+        checkAuth();
+
+        // === Settings & Tokens ===
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsBtn = document.getElementById('settings-btn');
+        const closeSettings = document.getElementById('close-settings');
+        const saveTokensBtn = document.getElementById('save-tokens-btn');
+        const clearTokensBtn = document.getElementById('clear-tokens-btn');
+        const agentSelector = document.getElementById('agent-selector');
+
+        let currentAgentType = 'transcript';
+
+        // Обработчик кнопки настроек
+        if (settingsBtn && settingsModal) {
+            settingsBtn.onclick = () => {
+                settingsModal.classList.remove('hidden');
+                loadTokens();
+            };
+        }
+
+        // Обработчик закрытия
+        if (closeSettings && settingsModal) {
+            closeSettings.onclick = () => {
+                settingsModal.classList.add('hidden');
+            };
+        }
+
+        // Закрытие по клику на overlay
+        if (settingsModal) {
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+        }
+
+        async function loadTokens() {
+            try {
+                const tokens = await apiRequest('/tokens/');
+                document.getElementById('hf-token').value = '';
+                document.getElementById('ollama-token').value = '';
+            } catch (e) {
+                console.error('Failed to load tokens');
+            }
+        }
+
+        if (saveTokensBtn) {
+            saveTokensBtn.onclick = async () => {
+                const hfToken = document.getElementById('hf-token').value.trim();
+                const ollamaToken = document.getElementById('ollama-token').value.trim();
+                const status = document.getElementById('token-status');
+                try {
+                    if (hfToken) {
+                        await apiRequest('/tokens/', 'POST', { service_name: 'huggingface', token: hfToken });
+                    }
+                    if (ollamaToken) {
+                        await apiRequest('/tokens/', 'POST', { service_name: 'ollama', token: ollamaToken });
+                    }
+                    status.textContent = '✅ Токены сохранены';
+                    status.className = 'text-sm text-center text-green-400';
+                    setTimeout(() => settingsModal.classList.add('hidden'), 1000);
+                } catch (err) {
+                    status.textContent = '❌ ' + err.message;
+                    status.className = 'text-sm text-center text-red-400';
+                }
+            };
+        }
+
+        if (clearTokensBtn) {
+            clearTokensBtn.onclick = async () => {
+                try {
+                    await apiRequest('/tokens/huggingface', 'DELETE');
+                    await apiRequest('/tokens/ollama', 'DELETE');
+                    document.getElementById('token-status').textContent = '✅ Токены удалены';
+                    document.getElementById('token-status').className = 'text-sm text-center text-green-400';
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+        }
+
+        // Agent Selection
+        agentSelector.onchange = () => {
+            currentAgentType = agentSelector.value;
+            // Можно сохранить выбор в localStorage для чата
+            if (currentChatId) {
+                localStorage.setItem(`chat_${currentChatId}_agent`, currentAgentType);
+            }
+        };
+
+    </script>
+</body>
+</html>
