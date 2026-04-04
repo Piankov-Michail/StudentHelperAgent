@@ -44,16 +44,17 @@ async def get_chat(
     if not chat:
         raise HTTPException(status_code=404, detail="Чат не найден")
     
-    # Serialize messages with IDs
+    # Serialize messages with IDs (только неудалённые)
     messages_data = []
     for msg in chat.messages:
-        messages_data.append({
-            "id": msg.id,
-            "content": msg.content,
-            "role": msg.role,
-            "file_path": msg.file_path,
-            "created_at": msg.created_at
-        })
+        if not msg.is_deleted:
+            messages_data.append({
+                "id": msg.id,
+                "content": msg.content,
+                "role": msg.role,
+                "file_path": msg.file_path,
+                "created_at": msg.created_at
+            })
     
     return {
         "chat": {
@@ -129,7 +130,7 @@ async def delete_messages_after(
     db: AsyncSession = Depends(get_db),
     storage = Depends(get_storage)
 ):
-    """Удалить сообщение и все последующие"""
+    """Удалить сообщение и все последующие (мягкое удаление)"""
     from app.repositories.chat_repo import ChatRepository
     from app.repositories.message_repo import MessageRepository
     
@@ -141,15 +142,10 @@ async def delete_messages_after(
     
     message_repo = MessageRepository(db)
     
-    # Удаляем файлы перед удалением сообщений
-    messages_to_delete = await message_repo.get_by_chat(chat_id)
+    # Проверяем существование сообщения
     target_msg = await message_repo.get_by_id(message_id)
     if target_msg and target_msg.chat_id == chat_id:
-        target_time = target_msg.created_at
-        for msg in messages_to_delete:
-            if msg.created_at >= target_time and msg.file_path:
-                await storage.delete(msg.file_path)
-        
+        # Мягкое удаление через репозиторий
         deleted_count = await message_repo.delete_after(message_id)
         return {"message": f"Удалено {deleted_count} сообщений", "deleted_count": deleted_count}
     
@@ -212,7 +208,8 @@ async def retry_message(
         "chat_id": chat_id,
         "user_id": current_user.id,
         "file_path": original_file_path,
-        "message_count": await chat_repo.get_message_count(chat_id)
+        "message_count": await chat_repo.get_message_count(chat_id),
+        "chat_history": await message_repo.get_by_chat(chat_id, include_deleted=False)
     }
     
     # Используем streaming версию

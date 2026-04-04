@@ -72,12 +72,15 @@ class ChatService:
         if file_path:
             query += f" (Файл: {file_path})"
         
-        # Контекст для агента
+        # Контекст для агента (включая историю чата без удалённых сообщений)
+        chat_history = await self.message_repo.get_by_chat(chat_id, include_deleted=False)
+        
         context = {
             "chat_id": chat_id,
             "user_id": user_id,
             "file_path": file_path,
             "message_count": await self.chat_repo.get_message_count(chat_id),
+            "chat_history": chat_history,
             "send_progress": lambda step, msg: send_progress(user_id, chat_id, step, 4, msg, "processing")
         }
         
@@ -144,12 +147,15 @@ class ChatService:
         if file_path:
             query += f" (Файл: {file_path})"
         
-        # Контекст для агента
+        # Контекст для агента (включая историю чата без удалённых сообщений)
+        chat_history = await self.message_repo.get_by_chat(chat_id, include_deleted=False)
+        
         context = {
             "chat_id": chat_id,
             "user_id": user_id,
             "file_path": file_path,
-            "message_count": await self.chat_repo.get_message_count(chat_id)
+            "message_count": await self.chat_repo.get_message_count(chat_id),
+            "chat_history": chat_history
         }
         
         # Проверяем, поддерживает ли агент streaming

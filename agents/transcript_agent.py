@@ -109,12 +109,13 @@ class TranscriptAgent(BaseAgent):
     
     async def process_stream(self, message: str, context: Dict[str, Any]):
         """Streaming версия - сначала выполняет tools, потом стримит финальный ответ LLM"""
-        from langchain_core.messages import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
         from tools.hf_whisper_tool import transcribe_video_direct
         
         send_progress = context.get("send_progress")
         user_id = context.get("user_id")
         file_path = context.get("file_path")
+        chat_history = context.get("chat_history", [])
         
         # ✅ Сохраняем user_id для создания инструмента
         self._current_user_id = user_id
@@ -137,14 +138,24 @@ class TranscriptAgent(BaseAgent):
             # Если файла нет, просто отвечаем на вопрос
             final_message = message
         
-        # Генерируем ответ со streaming
+        # Генерируем ответ со streaming с учётом истории
         system_prompt = self._get_system_prompt()
         
+        # Формируем сообщения с учётом истории
+        messages = [SystemMessage(content=system_prompt)]
+        
+        # Добавляем историю чата (только неудалённые сообщения)
+        for msg in chat_history:
+            if msg.role == "user":
+                messages.append(HumanMessage(content=msg.content))
+            elif msg.role == "assistant":
+                messages.append(AIMessage(content=msg.content))
+        
+        # Добавляем текущее сообщение
+        messages.append(HumanMessage(content=final_message))
+        
         full_response = ""
-        async for chunk in self.llm.astream([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=final_message)
-        ]):
+        async for chunk in self.llm.astream(messages):
             if hasattr(chunk, 'content') and chunk.content:
                 full_response += chunk.content
                 yield {"type": "token", "content": chunk.content}
