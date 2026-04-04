@@ -1,4 +1,31 @@
 .env
 all_project_code.txt
-*.sh
 tokens.txt
+
+# Deployment files
+certbot/
+nginx/logs/
+
+# Uploads
+temp_uploads/
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
