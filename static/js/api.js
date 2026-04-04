@@ -1,65 +1,28 @@
-class API {
-    constructor(baseURL = '') {
-        this.baseURL = baseURL;
-        this.token = localStorage.getItem('token');
-    }
-    
-    setToken(token) {
-        this.token = token;
-        localStorage.setItem('token', token);
-    }
-    
-    async request(endpoint, options = {}) {
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-        
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
-        }
-        
-        const response = await fetch(`${this.baseURL}${endpoint}`, {
-            ...options,
-            headers
-        });
-        
-        if (response.status === 401) {
-            this.logout();
-            throw new Error('Unauthorized');
-        }
-        
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.detail || 'Ошибка запроса');
-        }
-        
-        return response.json();
-    }
-    
-    async upload(endpoint, formData) {
-        const headers = {};
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
-        }
-        
-        const response = await fetch(`${this.baseURL}${endpoint}`, {
-            method: 'POST',
-            headers,
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error('Ошибка загрузки');
-        }
-        
-        return response.json();
-    }
-    
-    logout() {
-        this.token = null;
-        localStorage.removeItem('token');
-    }
-}
+// shared state & api
+window.state = {
+  token: localStorage.getItem('token'),
+  currentUser: null,
+  currentChatId: null,
+  chats: [],
+  selectedFiles: [],
+  chatStates: {},
+  currentAgentType: 'transcript',
+  isRegisterMode: false,
+  isGenerating: false,
+  abortController: null
+};
 
-export const api = new API();
+async function apiRequest(endpoint, method = 'GET', body = null, useAuth = true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (useAuth && window.state.token) headers['Authorization'] = `Bearer ${window.state.token}`;
+  const options = { method, headers };
+  if (body && method !== 'GET') options.body = JSON.stringify(body);
+  
+  const res = await fetch(endpoint, options);
+  if (res.status === 401) { window.auth.logout(); throw new Error('Unauthorized'); }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Ошибка запроса');
+  }
+  return res.json();
+}

@@ -46,7 +46,7 @@ class ChatService:
         user_id: int,
         content: str,
         file: Optional[UploadFile] = None
-    ) -> str:
+    ) -> dict:
         # Проверка существования чата
         chat = await self.chat_repo.get_by_id(chat_id, user_id)
         if not chat:
@@ -91,7 +91,7 @@ class ChatService:
         await send_progress(user_id, chat_id, 3, 4, "📝 Анализ транскрипции...", "processing")
         
         # Сохранение ответа
-        await self.message_repo.create(
+        assistant_message = await self.message_repo.create(
             chat_id=chat_id,
             content=result.output,
             role="assistant"
@@ -105,7 +105,11 @@ class ChatService:
         if msg_count <= 2:
             await self.chat_repo.update_title(chat_id, content[:50])
         
-        return result.output
+        return {
+            "output": result.output,
+            "user_message_id": user_message.id,
+            "assistant_message_id": assistant_message.id
+        }
 
     async def delete_chat(self, chat_id: int, user_id: int):
         # Получаем сообщения для удаления файлов
