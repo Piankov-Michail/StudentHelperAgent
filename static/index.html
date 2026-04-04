@@ -402,10 +402,11 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <select id="agent-selector" class="glass px-3 py-1.5 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
-                        <option value="transcript">🎥 Транскрайбер</option>
-                        <option value="assistant">💬 Помощник</option>
-                        <option value="rag">🧠 RAG (скоро)</option>
+                    <select id="agent-selector" 
+                        class="glass px-3 py-1.5 rounded-xl text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer hover:text-white transition-all appearance-none">
+                        <option value="transcript" class="bg-[#0d0d14] text-gray-300">🎥 Транскрайбер</option>
+                        <option value="assistant" class="bg-[#0d0d14] text-gray-300">💬 Помощник</option>
+                        <option value="rag" class="bg-[#0d0d14] text-gray-400" disabled>🧠 RAG (скоро)</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-2">

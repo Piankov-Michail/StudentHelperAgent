@@ -1,91 +1,118 @@
-from langchain_core.tools import tool
-import requests
 import os
-import time
+import asyncio
+import logging
+import mimetypes
+from typing import Optional
+from langchain_core.tools import tool
+from huggingface_hub import AsyncInferenceClient
 from app.database import async_session_maker
 from sqlalchemy import select
 from app.models import UserAPIKey
 from app.security import encryptor
 
-@tool
-async def transcribe_video_hf(video_path: str, user_id: int = None) -> str:
-    '''Транскрибация видео/аудио через Hugging Face Inference API'''
-    if not os.path.exists(video_path):
-        return "Ошибка: Файл не найден."
+logger = logging.getLogger(__name__)
+
+# Принудительно регистрируем mp3, чтобы HF API точно распознал его как audio/mpeg
+mimetypes.add_type('audio/mpeg', '.mp3')
+
+async def prepare_audio_async(input_path: str) -> str:
+    """Асинхронно извлекает аудио и сжимает его в mp3 через ffmpeg."""
+    base, _ = os.path.splitext(input_path)
+    output_path = f"{base}_compressed.mp3"
     
-    # Получаем токен пользователя
-    hf_token = None
-    if user_id:
-        async with async_session_maker() as session:
-            result = await session.execute(
-                select(UserAPIKey)
-                .where(UserAPIKey.user_id == user_id, UserAPIKey.service_name == "huggingface")
-            )
-            key_record = result.scalar_one_or_none()
-            if key_record:
-                hf_token = encryptor.decrypt(key_record.encrypted_key)
+    # Конвертируем в 16kHz, mono, 32kbps mp3 (идеально для Whisper)
+    command =[
+        'ffmpeg', '-i', input_path,
+        '-vn',                    # Игнорировать видео
+        '-acodec', 'libmp3lame',  # Кодировать в MP3
+        '-ar', '16000',           # Частота дискретизации 16kHz
+        '-ac', '1',               # Один канал (моно)
+        '-b:a', '32k',            # Битрейт 32k
+        '-y', output_path         # Перезаписать файл, если есть
+    ]
     
-    if not hf_token:
-        hf_token = os.getenv("HUGGINGFACE_TOKEN", "")
+    # Запускаем ffmpeg асинхронно, чтобы не блокировать event loop
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL
+    )
     
-    if not hf_token:
-        return "Ошибка: Не указан токен Hugging Face. Добавьте его в настройках."
+    await process.communicate()
     
-    # ✅ Retry-логика с экспоненциальной задержкой
-    max_retries = 3
-    base_delay = 2
-    
-    for attempt in range(max_retries):
+    if process.returncode != 0 or not os.path.exists(output_path):
+        raise RuntimeError("Ошибка при конвертации/извлечении аудио через FFmpeg")
+        
+    return output_path
+
+
+def create_transcribe_video_hf_tool(user_id: Optional[int] = None):
+    @tool("transcribe_video")
+    async def transcribe_video_hf(video_path: str) -> str:
+        """Транскрибация видео/аудио через Hugging Face Inference API (с предварительным сжатием)."""
+        logger.info(f"🎤 Транскрибация: {video_path}, user_id={user_id}")
+        
+        if not os.path.exists(video_path):
+            return "Ошибка: Файл не найден."
+
+        # Получение токена (делаем это ДО конвертации, чтобы не тратить ресурсы, если токена нет)
+        hf_token = None
+        if user_id:
+            try:
+                async with async_session_maker() as session:
+                    result = await session.execute(
+                        select(UserAPIKey).where(
+                            UserAPIKey.user_id == user_id,
+                            UserAPIKey.service_name == "huggingface"
+                        )
+                    )
+                    key_record = result.scalar_one_or_none()
+                    if key_record:
+                        hf_token = encryptor.decrypt(key_record.encrypted_key)
+            except Exception as e:
+                logger.warning(f"Ошибка получения токена: {e}")
+
+        if not hf_token:
+            hf_token = os.getenv("HUGGINGFACE_TOKEN", "")
+            if not hf_token:
+                return "Ошибка: Не указан токен Hugging Face."
+
+        compressed_audio_path = None
         try:
-            with open(video_path, "rb") as f:
-                data = f.read()
+            # 1. Извлекаем и сжимаем аудио
+            logger.info("Сжатие аудио через FFmpeg...")
+            compressed_audio_path = await prepare_audio_async(video_path)
             
-            # ✅ Проверка размера файла (макс 25MB для HF API)
-            if len(data) > 25 * 1024 * 1024:
-                return f"Ошибка: Файл слишком большой ({len(data) / 1024 / 1024:.1f}MB). Максимум 25MB для HF API."
+            # 2. Проверяем размер после сжатия (на всякий случай)
+            file_size = os.path.getsize(compressed_audio_path)
+            if file_size > 25 * 1024 * 1024:
+                return f"Ошибка: Даже после сжатия файл слишком большой ({file_size / 1024 / 1024:.1f}MB). Максимум 25MB."
+
+            # 3. Отправляем на Hugging Face
+            client = AsyncInferenceClient(token=hf_token)
+            logger.info("Отправка сжатого аудио на Hugging Face...")
             
-            response = requests.post(
-                "https://api-inference.huggingface.co/models/openai/whisper-large-v3",
-                headers={
-                    "Authorization": f"Bearer {hf_token}",
-                    "Content-Type": "application/octet-stream"
-                },
-                data=data,
-                timeout=300,
-                stream=True  # ✅ Для больших файлов
+            transcription = await client.automatic_speech_recognition(
+                compressed_audio_path, 
+                model="openai/whisper-large-v3-turbo"
             )
             
-            # ✅ Обработка 503 (модель загружается)
-            if response.status_code == 503:
-                wait_time = response.json().get('estimated_time', 30)
-                if attempt < max_retries - 1:
-                    time.sleep(min(wait_time, 60))
-                    continue
-                return f"Ошибка: Модель не доступна. Попробуйте через {wait_time:.0f} сек."
-            
-            if response.status_code != 200:
-                return f"Ошибка HF API: {response.status_code} - {response.text[:200]}"
-            
-            # ✅ Читаем ответ частями
-            result = response.json()
-            if isinstance(result, dict) and "text" in result:
-                return result["text"]
-            elif isinstance(result, list) and len(result) > 0:
-                return " ".join([item.get("text", "") for item in result])
-            else:
-                return f"Неожиданный формат ответа: {result}"
-                
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                time.sleep(base_delay * (attempt + 1))
-                continue
-            return "Ошибка: Превышено время ожидания транскрибации"
-        except requests.exceptions.ConnectionError as e:
-            if attempt < max_retries - 1:
-                time.sleep(base_delay * (attempt + 1))
-                continue
-            return f"Ошибка соединения: {str(e)[:100]}. Попробуйте файл меньшего размера."
+            text = transcription.text if hasattr(transcription, "text") else transcription
+            return text if text.strip() else "⚠️ Аудио не содержит речи"
+
         except Exception as e:
-            return f"Ошибка при обработке видео: {str(e)[:200]}"
-    
-    return "Ошибка: Не удалось выполнить транскрибацию после нескольких попыток"
+            logger.error(f"❌ Ошибка транскрибации: {e}")
+            return f"Ошибка при обработке: {str(e)[:150]}"
+            
+        finally:
+            # Обязательно удаляем временный сжатый mp3 файл, чтобы не засорять диск
+            if compressed_audio_path and os.path.exists(compressed_audio_path):
+                try:
+                    os.remove(compressed_audio_path)
+                    logger.info("🗑 Временный аудиофайл удален.")
+                except Exception as cleanup_error:
+                    logger.warning(f"Не удалось удалить временный файл {compressed_audio_path}: {cleanup_error}")
+
+    return transcribe_video_hf
+
+transcribe_video_hf = create_transcribe_video_hf_tool(user_id=None)
