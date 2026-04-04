@@ -38,5 +38,23 @@ class AssistantAgent(BaseAgent):
             metadata={"agent_type": "assistant", "tools_used": []}
         )
     
+    async def process_stream(self, message: str, context: Dict[str, Any]):
+        """Streaming версия process - возвращает async generator с токенами и полным ответом"""
+        system_prompt = """Ты — полезный ассистент. Отвечай подробно и структурированно.
+        Если пользователь спрашивает о видео/аудио файлах — объясни, что для работы с ними 
+        нужно выбрать агента 'Транскрайбер'."""
+        
+        full_response = ""
+        async for chunk in self.llm.astream([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=message)
+        ]):
+            if hasattr(chunk, 'content') and chunk.content:
+                full_response += chunk.content
+                yield {"type": "token", "content": chunk.content}
+        
+        # В конце отправляем полный ответ
+        yield {"type": "complete", "content": full_response}
+    
     async def get_available_models(self) -> List[str]:
         return [self.config.model_name]

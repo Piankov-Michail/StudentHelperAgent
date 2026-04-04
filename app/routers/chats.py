@@ -96,6 +96,7 @@ async def send_message(
     text: str = Form(...),
     file: Optional[UploadFile] = File(None),
     agent_type: str = Form("transcript"),
+    stream: bool = Form(False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     storage = Depends(get_storage)
@@ -105,7 +106,13 @@ async def send_message(
     
     agent = await get_agent(current_user.id, agent_type)
     service = ChatService(db, storage, agent, user_id=current_user.id, chat_id=chat_id)
-    result = await service.process_message(chat_id, current_user.id, text, file)
+    
+    # Используем streaming версию если запрошено
+    if stream:
+        result = await service.process_message_stream(chat_id, current_user.id, text, file)
+    else:
+        result = await service.process_message(chat_id, current_user.id, text, file)
+    
     return {
         "answer": result["output"],
         "user_message_id": result["user_message_id"],
@@ -153,6 +160,7 @@ async def retry_message(
     chat_id: int,
     message_id: int,
     agent_type: str = Form("transcript"),
+    stream: bool = Form(True),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     storage = Depends(get_storage)
@@ -174,7 +182,10 @@ async def retry_message(
     if not target_msg or target_msg.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Сообщение не найдено")
     
-    # Удаляем все сообщения после указанного
+    # Сохраняем file_path из оригинального сообщения
+    original_file_path = target_msg.file_path
+    
+    # Удаляем все сообщения после указанного (включая само сообщение)
     deleted_count = await message_repo.delete_after(message_id)
     
     # Получаем текст сообщения для повторного запроса
@@ -183,12 +194,52 @@ async def retry_message(
     # Создаём сервис и обрабатываем
     agent = await get_agent(current_user.id, agent_type)
     service = ChatService(db, storage, agent, user_id=current_user.id, chat_id=chat_id)
-    result = await service.process_message(chat_id, current_user.id, content, None)
+    
+    # Создаем новое user сообщение с тем же текстом и file_path
+    user_message = await message_repo.create(
+        chat_id=chat_id,
+        content=content,
+        role="user",
+        file_path=original_file_path
+    )
+    
+    # Подготовка запроса к агенту
+    query = content
+    if original_file_path:
+        query += f" (Файл: {original_file_path})"
+    
+    context = {
+        "chat_id": chat_id,
+        "user_id": current_user.id,
+        "file_path": original_file_path,
+        "message_count": await chat_repo.get_message_count(chat_id)
+    }
+    
+    # Используем streaming версию
+    full_response = ""
+    if stream and hasattr(agent, 'process_stream'):
+        from app.routers.ws import send_token
+        async for chunk in agent.process_stream(query, context):
+            if chunk["type"] == "token":
+                await send_token(current_user.id, chat_id, chunk["content"])
+            elif chunk["type"] == "complete":
+                full_response = chunk["content"]
+    else:
+        from agents.base import AgentResult
+        result: AgentResult = await agent.process(query, context)
+        full_response = result.output
+    
+    # Сохранение ответа
+    assistant_message = await message_repo.create(
+        chat_id=chat_id,
+        content=full_response,
+        role="assistant"
+    )
     
     return {
-        "answer": result["output"],
-        "user_message_id": result["user_message_id"],
-        "assistant_message_id": result["assistant_message_id"],
+        "answer": full_response,
+        "user_message_id": user_message.id,
+        "assistant_message_id": assistant_message.id,
         "status": "success",
         "agent_type": agent_type,
         "deleted_messages": deleted_count

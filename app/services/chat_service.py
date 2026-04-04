@@ -6,7 +6,7 @@ from app.repositories.message_repo import MessageRepository
 from app.storage.base import StorageStrategy
 from agents.base import BaseAgent, AgentResult
 
-from app.routers.ws import send_progress
+from app.routers.ws import send_progress, send_token
 
 class ChatService:
     def __init__(
@@ -107,6 +107,78 @@ class ChatService:
         
         return {
             "output": result.output,
+            "user_message_id": user_message.id,
+            "assistant_message_id": assistant_message.id
+        }
+
+    async def process_message_stream(
+        self,
+        chat_id: int,
+        user_id: int,
+        content: str,
+        file: Optional[UploadFile] = None
+    ) -> dict:
+        """Streaming версия process_message"""
+        # Проверка существования чата
+        chat = await self.chat_repo.get_by_id(chat_id, user_id)
+        if not chat:
+            raise HTTPException(status_code=404, detail="Чат не найден")
+        
+        file_path = None
+        
+        # Загрузка файла
+        if file:
+            await send_progress(user_id, chat_id, 1, 3, "📁 Загрузка файла...", "processing")
+            file_path = await self.storage.save(file, user_id)
+        
+        # Сохранение сообщения пользователя
+        user_message = await self.message_repo.create(
+            chat_id=chat_id,
+            content=content,
+            role="user",
+            file_path=file_path
+        )
+        
+        # Подготовка запроса к агенту
+        query = content
+        if file_path:
+            query += f" (Файл: {file_path})"
+        
+        # Контекст для агента
+        context = {
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "file_path": file_path,
+            "message_count": await self.chat_repo.get_message_count(chat_id)
+        }
+        
+        # Проверяем, поддерживает ли агент streaming
+        full_response = ""
+        if hasattr(self.agent, 'process_stream'):
+            async for chunk in self.agent.process_stream(query, context):
+                if chunk["type"] == "token":
+                    await send_token(user_id, chat_id, chunk["content"])
+                elif chunk["type"] == "complete":
+                    full_response = chunk["content"]
+        else:
+            # Fallback на обычный метод
+            result: AgentResult = await self.agent.process(query, context)
+            full_response = result.output
+        
+        # Сохранение ответа
+        assistant_message = await self.message_repo.create(
+            chat_id=chat_id,
+            content=full_response,
+            role="assistant"
+        )
+        
+        # Обновление заголовка если это первое сообщение
+        msg_count = await self.chat_repo.get_message_count(chat_id)
+        if msg_count <= 2:
+            await self.chat_repo.update_title(chat_id, content[:50])
+        
+        return {
+            "output": full_response,
             "user_message_id": user_message.id,
             "assistant_message_id": assistant_message.id
         }

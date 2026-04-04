@@ -64,7 +64,7 @@ window.chat = {
       wrapper.innerHTML = `
           ${avatar}
           <div class="flex-1 min-w-0">
-              <div class="message-bubble ${role.toLowerCase()}">${fileHtml}<div class="prose prose-invert max-w-none">${contentHtml}</div></div>
+              <div class="message-bubble ${role.toLowerCase()}">${fileHtml}<div class="prose prose-invert max-w-none message-content">${contentHtml}</div></div>
               <div class="flex items-center gap-2 mt-2.5 text-xs text-gray-500 ${isUser ? 'justify-end mr-2' : 'ml-2'}">
                   <span>${isUser ? 'Вы' : 'StudentHelper'}</span><span>•</span><span>${time}</span>
               </div>
@@ -76,6 +76,53 @@ window.chat = {
       // Подсветка кода
       wrapper.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
       if (scroll) document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+  },
+  appendToken: (token) => {
+    // Находим последнее сообщение ассистента
+    let lastAssistant = document.querySelector('#chat .message-wrapper:not(.user):last-child');
+    
+    // Если есть loading message, удаляем его и создаем новое сообщение
+    const loadingMsg = document.getElementById('loading-message');
+    if (loadingMsg) {
+      loadingMsg.remove();
+      window.chat.addMessage('', 'assistant', null, null, false);
+      lastAssistant = document.querySelector('#chat .message-wrapper:not(.user):last-child');
+      // Инициализируем хранилище для raw текста
+      if (lastAssistant) {
+        lastAssistant.dataset.rawText = '';
+      }
+    }
+    
+    if (lastAssistant) {
+      const contentDiv = lastAssistant.querySelector('.message-content');
+      if (contentDiv) {
+        // Сохраняем raw текст в dataset
+        if (!lastAssistant.dataset.rawText) {
+          lastAssistant.dataset.rawText = '';
+        }
+        lastAssistant.dataset.rawText += token;
+        
+        // Рендерим markdown из накопленного текста
+        contentDiv.innerHTML = marked.parse(lastAssistant.dataset.rawText);
+        // Подсветка кода
+        contentDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        // Скроллим вниз
+        document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+      }
+    } else {
+      // Если нет сообщения ассистента, создаем новое
+      window.chat.addMessage('', 'assistant', null, null, false);
+      lastAssistant = document.querySelector('#chat .message-wrapper:not(.user):last-child');
+      if (lastAssistant) {
+        lastAssistant.dataset.rawText = token;
+        const contentDiv = lastAssistant.querySelector('.message-content');
+        if (contentDiv) {
+          contentDiv.innerHTML = marked.parse(token);
+          contentDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+          document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+        }
+      }
+    }
   },
   addLoadingMessage: (agentType = 'transcript') => {
     const wrapper = document.createElement('div');
@@ -117,10 +164,35 @@ window.chat = {
       window.app.stopGeneration();
     }
     
+    // Set loading state
+    const st = window.chat.getChatState(chatId);
+    st.loading = true;
+    window.state.isGenerating = true;
+    window.chat.renderChatsList();
+    window.chat.updateChatHeader(st);
+    window.app.updateSendButton();
+    
     try {
+      // Remove all messages from DOM after this wrapper first
+      let nextSibling = messageWrapper.nextElementSibling;
+      while (nextSibling) {
+        const toRemove = nextSibling;
+        nextSibling = nextSibling.nextElementSibling;
+        if (toRemove.classList.contains('message-wrapper')) {
+          toRemove.remove();
+        }
+      }
+      
+      // Connect WebSocket for streaming
+      window.chat.connectWebSocket(chatId);
+      
+      // Create empty assistant message for streaming
+      window.chat.addMessage('', 'assistant', null, null, false);
+      
       // Call API to retry - server will delete messages after this one and regenerate
       const fd = new FormData();
       fd.append('agent_type', window.state.currentAgentType);
+      fd.append('stream', 'true');
       
       const res = await fetch(`/chats/${chatId}/retry/${messageId}`, {
         method: 'POST',
@@ -141,24 +213,40 @@ window.chat = {
         messageWrapper.dataset.messageId = data.user_message_id;
       }
       
-      // Remove all messages from DOM after this wrapper
-      let nextSibling = messageWrapper.nextElementSibling;
-      while (nextSibling) {
-        const toRemove = nextSibling;
-        nextSibling = nextSibling.nextElementSibling;
-        if (toRemove.classList.contains('message-wrapper')) {
-          toRemove.remove();
+      // Update assistant message with ID and content if streaming didn't work
+      const lastAssistant = document.querySelector('#chat .message-wrapper:not(.user):last-child');
+      if (lastAssistant && data.assistant_message_id) {
+        lastAssistant.dataset.messageId = data.assistant_message_id;
+        const contentDiv = lastAssistant.querySelector('.message-content');
+        if (contentDiv && (!lastAssistant.dataset.rawText || !lastAssistant.dataset.rawText.trim())) {
+          lastAssistant.dataset.rawText = data.answer;
+          contentDiv.innerHTML = marked.parse(data.answer);
+          contentDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         }
       }
       
-      // Add the new assistant response with its ID
-      window.chat.addMessage(data.answer, 'assistant', null, null, true, data.assistant_message_id);
+      // Close WebSocket
+      if (window.ws) {
+        window.ws.close();
+        window.ws = null;
+      }
+      if (window.wsPingInterval) {
+        clearInterval(window.wsPingInterval);
+        window.wsPingInterval = null;
+      }
+      
       window.chat.loadChats();
       window.chat.showToast('✅ Запрос повторён');
       
     } catch (err) {
       console.error('❌ Retry error:', err);
       window.chat.showToast('❌ Ошибка: ' + err.message);
+    } finally {
+      st.loading = false;
+      window.state.isGenerating = false;
+      window.chat.renderChatsList();
+      window.chat.updateChatHeader(st);
+      window.app.updateSendButton();
     }
   },
   deleteMessage: async (btn) => {
@@ -212,6 +300,10 @@ window.chat = {
       console.log('📨 WS message:', d);
       if(d.type==='progress') {
         window.chat.updateProcessingStep(d.step-1, d.message, d.status);
+      } else if(d.type==='token') {
+        console.log('🔤 Token received:', d.content);
+        // Streaming токены - добавляем к последнему сообщению ассистента
+        window.chat.appendToken(d.content);
       } else if(d.type==='connected') {
         console.log('✅ WS confirmed:', d.message);
       }

@@ -143,3 +143,14 @@ async def send_progress(user_id: int, chat_id: int, step: int, total_steps: int,
         }, user_id, chat_id)
     except Exception as e:
         logger.warning(f"Не удалось отправить прогресс: {e}")
+
+async def send_token(user_id: int, chat_id: int, token: str):
+    """Отправить токен через WebSocket для streaming"""
+    try:
+        await manager.send_personal_message({
+            "type": "token",
+            "content": token,
+            "timestamp": asyncio.get_event_loop().time()
+        }, user_id, chat_id)
+    except Exception as e:
+        logger.warning(f"Не удалось отправить токен: {e}")
