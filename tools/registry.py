@@ -24,5 +24,5 @@ class ToolRegistry:
         return list(cls._tools.keys())
 
 # Регистрация инструментов
-from tools.whisper_tool import transcribe_video
-ToolRegistry.register("transcribe_video", transcribe_video)
+from tools.whisper_tool import transcribe_video_hf
+ToolRegistry.register("transcribe_video", transcribe_video_hf)

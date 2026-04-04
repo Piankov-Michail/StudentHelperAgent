@@ -9,7 +9,9 @@ from agents.factory import AgentFactory
 from agents.base import AgentConfig
 from app.database import async_session_maker
 from app.models import UserAPIKey
-from app.security import encryptor  # Импорт утилиты расшифровки
+from app.security import encryptor
+
+import os
 
 @lru_cache()
 def get_storage() -> StorageStrategy:
@@ -45,14 +47,16 @@ async def get_agent_config_for_user(
                 elif key_record.service_name == "ollama":
                     ollama_key = decrypted
             except Exception:
-                # Если расшифровка не удалась, оставляем дефолт
                 pass
     
+    if ollama_key:
+        os.environ["OLLAMA_API_KEY"] = ollama_key
+
     return AgentConfig(
         model_name=settings.DEFAULT_MODEL,
         base_url=settings.OLLAMA_BASE_URL,
         api_key=ollama_key,
-        hf_token=hf_token,  # Специфично для Whisper
+        hf_token=hf_token,
         temperature=0.7
     )
 
