@@ -48,5 +48,6 @@ class Message(Base):
     chat_id = Column(Integer, ForeignKey("chats.id"), nullable=False)
     file_path = Column(String(500), nullable=True)
     processing_steps = Column(Text, nullable=True)  # JSON с шагами обработки
+    is_deleted = Column(Boolean, default=False, nullable=False)  # Мягкое удаление
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     chat = relationship("Chat", back_populates="messages")

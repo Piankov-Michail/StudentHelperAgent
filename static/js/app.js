@@ -149,10 +149,24 @@ window.app = {
         userMessageElement = document.querySelector('#chat .message-wrapper.user:last-child');
       }
       
-      const fd = new FormData(); fd.append('text', text||'Анализируй файл'); fd.append('agent_type', window.state.currentAgentType);
+      const fd = new FormData(); fd.append('text', text||'Анализируй файл'); fd.append('agent_type', window.state.currentAgentType); fd.append('stream', 'true');
       if(window.state.selectedFiles.length>0) fd.append('file', window.state.selectedFiles[0]);
       ti.value=''; ti.style.height='auto'; window.state.selectedFiles=[]; window.file.renderFilePreviews(); window.chat.saveChatState(window.state.currentChatId); window.app.updateSendButton();
-      window.chat.addLoadingMessage(window.state.currentAgentType); window.chat.connectWebSocket(window.state.currentChatId);
+      
+      // Всегда подключаем WebSocket для получения токенов
+      window.chat.connectWebSocket(window.state.currentChatId);
+      
+      // Для transcript с файлами показываем loading с прогресс-баром
+      // После транскрибации loading удалится и создастся пустое сообщение для streaming
+      const hasFile = fd.get('file') !== null;
+      const isTranscript = window.state.currentAgentType === 'transcript';
+      
+      if (isTranscript && hasFile) {
+        window.chat.addLoadingMessage(window.state.currentAgentType);
+      } else {
+        // Для assistant или transcript без файлов сразу создаем пустое сообщение для streaming
+        window.chat.addMessage('', 'assistant', null, null, false);
+      }
       
       try {
         const res = await fetch(`/chats/${window.state.currentChatId}/message`, { 
@@ -169,8 +183,35 @@ window.app = {
           userMessageElement.dataset.messageId = data.user_message_id;
         }
         
-        // Add assistant message with its ID from server
-        window.chat.addMessage(data.answer, 'assistant', null, null, true, data.assistant_message_id);
+        // Удаляем loading message если он еще есть
+        document.getElementById('loading-message')?.remove();
+        
+        // Обновляем последнее сообщение ассистента с ID
+        const lastAssistant = document.querySelector('#chat .message-wrapper:not(.user):last-child');
+        if (lastAssistant && data.assistant_message_id) {
+          lastAssistant.dataset.messageId = data.assistant_message_id;
+          // Если контент пустой (streaming не сработал), добавляем полный ответ
+          const contentDiv = lastAssistant.querySelector('.message-content');
+          if (contentDiv && (!lastAssistant.dataset.rawText || !lastAssistant.dataset.rawText.trim())) {
+            lastAssistant.dataset.rawText = data.answer;
+            contentDiv.innerHTML = marked.parse(data.answer);
+            contentDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+          }
+        } else if (!lastAssistant || lastAssistant.classList.contains('user')) {
+          // Если streaming вообще не создал сообщение, добавляем его
+          window.chat.addMessage(data.answer, 'assistant', null, null, true, data.assistant_message_id);
+        }
+        
+        // Закрываем WebSocket только если он был открыт
+        if (window.ws) {
+          window.ws.close();
+          window.ws = null;
+        }
+        if (window.wsPingInterval) {
+          clearInterval(window.wsPingInterval);
+          window.wsPingInterval = null;
+        }
+        
         window.chat.loadChats();
       } catch(err) {
         if (err.name === 'AbortError') {

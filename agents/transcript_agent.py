@@ -107,5 +107,60 @@ class TranscriptAgent(BaseAgent):
             }
         )
     
+    async def process_stream(self, message: str, context: Dict[str, Any]):
+        """Streaming версия - сначала выполняет tools, потом стримит финальный ответ LLM"""
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+        from tools.hf_whisper_tool import transcribe_video_direct
+        
+        send_progress = context.get("send_progress")
+        user_id = context.get("user_id")
+        file_path = context.get("file_path")
+        chat_history = context.get("chat_history", [])
+        
+        # ✅ Сохраняем user_id для создания инструмента
+        self._current_user_id = user_id
+        
+        # Если есть файл, сначала транскрибируем его
+        transcription = None
+        if file_path:
+            if send_progress:
+                await send_progress(2, "🔊 Транскрибация через Whisper...")
+            
+            # Вызываем транскрибацию напрямую
+            transcription = await transcribe_video_direct(file_path, user_id=user_id)
+            
+            if send_progress:
+                await send_progress(3, "📝 Генерация конспекта...")
+            
+            # Создаем промпт для генерации конспекта на основе транскрипции
+            final_message = f"{message}\n\nТранскрипция:\n{transcription}"
+        else:
+            # Если файла нет, просто отвечаем на вопрос
+            final_message = message
+        
+        # Генерируем ответ со streaming с учётом истории
+        system_prompt = self._get_system_prompt()
+        
+        # Формируем сообщения с учётом истории
+        messages = [SystemMessage(content=system_prompt)]
+        
+        # Добавляем историю чата (только неудалённые сообщения)
+        for msg in chat_history:
+            if msg.role == "user":
+                messages.append(HumanMessage(content=msg.content))
+            elif msg.role == "assistant":
+                messages.append(AIMessage(content=msg.content))
+        
+        # Добавляем текущее сообщение
+        messages.append(HumanMessage(content=final_message))
+        
+        full_response = ""
+        async for chunk in self.llm.astream(messages):
+            if hasattr(chunk, 'content') and chunk.content:
+                full_response += chunk.content
+                yield {"type": "token", "content": chunk.content}
+        
+        yield {"type": "complete", "content": full_response}
+    
     async def get_available_models(self) -> List[str]:
         return [self.config.model_name]
