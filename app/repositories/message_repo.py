@@ -70,3 +70,20 @@ class MessageRepository:
             select(Message).where(Message.file_path.isnot(None))
         )
         return list(result.scalars().all())
+    
+    async def delete_after(self, message_id: int) -> int:
+        """Удалить все сообщения после указанного (включая его)"""
+        target_msg = await self.get_by_id(message_id)
+        if not target_msg:
+            return 0
+        
+        target_time = target_msg.created_at
+        
+        result = await self.db.execute(
+            delete(Message).where(
+                Message.chat_id == target_msg.chat_id,
+                Message.created_at >= target_time
+            )
+        )
+        await self.db.commit()
+        return result.rowcount

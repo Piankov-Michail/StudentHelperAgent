@@ -9,7 +9,7 @@ class LocalStorage(StorageStrategy):
     def __init__(self, base_dir: str = "uploads"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(exist_ok=True)
-        self.max_size = 100 * 1024 * 1024  # 100MB
+        self.max_size = 300 * 1024 * 1024  # 100MB
         self.allowed_extensions = {
             '.mp4', '.avi', '.mov', '.mkv', '.webm',
             '.mp3', '.wav', '.m4a', '.flac', '.ogg'
