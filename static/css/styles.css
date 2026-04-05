@@ -229,10 +229,75 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: rgba(13
     .message-bubble { max-width: 100%; }
 }
 @media (max-width: 768px) {
-    .input-area { min-height: 100px; padding-bottom: 1rem; }
-    #agent-selector { min-width: 140px; font-size: 12px; padding: 6px 32px 6px 10px; }
-    header { padding-left: 1rem; padding-right: 1rem; }
-    header h2 { font-size: 1rem; }
+    /* Уменьшаем высоту области ввода для мобильных */
+    .input-area { 
+        min-height: 80px; 
+        padding: 0.75rem 1rem 1rem 1rem;
+        background: linear-gradient(to bottom, transparent, #1e1e1f 20%);
+    }
+    
+    /* Компактный селектор агента */
+    #agent-selector { 
+        min-width: 120px; 
+        font-size: 11px; 
+        padding: 4px 28px 4px 8px;
+        background-size: 14px;
+        background-position: right 8px center;
+    }
+    
+    /* Скрываем описание агента на мобильных */
+    #agent-description { display: none !important; }
+    
+    /* Компактный header */
+    header { 
+        padding-left: 0.75rem; 
+        padding-right: 0.75rem;
+        height: 64px;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    header h2 { font-size: 0.9rem; }
+    header .flex.items-center.gap-3 { gap: 0.5rem; }
+    
+    /* Переносим селектор агента на новую строку на очень маленьких экранах */
+    @media (max-width: 480px) {
+        header { height: auto; min-height: 64px; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        header > div:last-child { width: 100%; justify-content: space-between; margin-top: 0.5rem; }
+    }
+    
+    /* Исправляем переполнение текста в сообщениях */
+    .message-bubble { 
+        max-width: 100%; 
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+    
+    /* Ограничиваем ширину контента в сообщениях */
+    .message-bubble p,
+    .message-bubble div,
+    .message-bubble pre,
+    .message-bubble code {
+        max-width: 100%;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+    
+    /* Горизонтальная прокрутка для pre/code блоков */
+    .prose pre {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+    
+    /* Уменьшаем отступы в чате */
+    #chat { padding: 1rem 0.75rem; }
+    
+    /* Компактные кнопки действий */
+    #chat .message-actions .btn-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+    }
 }
 
 /* === Utility Classes === */
