@@ -25,4 +25,8 @@ class ToolRegistry:
 
 # Регистрация инструментов
 from tools.whisper_tool import transcribe_video_hf
+from tools.graphrag_upload_tool import create_graphrag_upload_tool
+from tools.graphrag_query_tool import create_graphrag_query_tool
+
 ToolRegistry.register("transcribe_video", transcribe_video_hf)
+# GraphRAG tools регистрируются динамически с user_id через фабрики

@@ -17,3 +17,10 @@ pydantic-settings>=2.3.0
 aiofiles==24.1.0
 aiohttp==3.10.5
 huggingface_hub>=0.22.0
+groq>=0.4.0
+llama-index>=0.10.0
+llama-index-core>=0.10.0
+llama-index-graph-stores-neo4j>=0.2.0
+llama-index-llms-ollama>=0.1.0
+llama-index-llms-openai>=0.1.0
+neo4j>=5.15.0

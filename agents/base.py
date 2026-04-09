@@ -7,7 +7,6 @@ class AgentConfig(BaseModel):
     model_name: str
     base_url: str
     api_key: Optional[str] = None       # Для Ollama/OpenAI
-    hf_token: Optional[str] = None      # Для HuggingFace Whisper
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     custom_params: Dict[str, Any] = {}

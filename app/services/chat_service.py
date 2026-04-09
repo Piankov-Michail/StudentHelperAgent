@@ -160,16 +160,20 @@ class ChatService:
         
         # Проверяем, поддерживает ли агент streaming
         full_response = ""
-        if hasattr(self.agent, 'process_stream'):
-            async for chunk in self.agent.process_stream(query, context):
-                if chunk["type"] == "token":
-                    await send_token(user_id, chat_id, chunk["content"])
-                elif chunk["type"] == "complete":
-                    full_response = chunk["content"]
-        else:
-            # Fallback на обычный метод
-            result: AgentResult = await self.agent.process(query, context)
-            full_response = result.output
+        try:
+            if hasattr(self.agent, 'process_stream'):
+                async for chunk in self.agent.process_stream(query, context):
+                    if chunk["type"] == "token":
+                        await send_token(user_id, chat_id, chunk["content"])
+                    elif chunk["type"] == "complete":
+                        full_response = chunk["content"]
+            else:
+                # Fallback на обычный метод
+                result: AgentResult = await self.agent.process(query, context)
+                full_response = result.output
+        except Exception as e:
+            logger.error(f"Ошибка при обработке сообщения: {e}")
+            full_response = f"❌ Ошибка при обработке запроса: {str(e)[:200]}\n\nПроверьте подключение к Ollama или настройки API токенов."
         
         # Сохранение ответа
         assistant_message = await self.message_repo.create(

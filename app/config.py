@@ -9,8 +9,14 @@ class Settings(BaseSettings):
     OLLAMA_API_KEY: str = ""
     DEFAULT_MODEL: str = "gpt-oss:20b-cloud"
     ENCRYPTION_KEY: str = ""
-    HUGGINGFACE_TOKEN: str = ""
-    OLLAMA_API_KEY: str = ""
+    
+    # Neo4j settings
+    NEO4J_URI: str = "bolt://neo4j:7687"
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: str = "your_neo4j_password_here"
+    
+    # NVIDIA API for embeddings
+    NVIDIA_API_KEY: str = ""
     
     class Config:
         env_file = ".env"

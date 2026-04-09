@@ -26,11 +26,11 @@ async def get_agent_config_for_user(
     Получает конфигурацию агента с токенами конкретного пользователя из БД.
     """
     # Токены по умолчанию из .env (если у пользователя нет своих)
-    default_hf_token = getattr(settings, 'HUGGINGFACE_TOKEN', '')
     default_ollama_key = getattr(settings, 'OLLAMA_API_KEY', '')
+    default_nvidia_key = getattr(settings, 'NVIDIA_API_KEY', '')
     
-    hf_token = default_hf_token
     ollama_key = default_ollama_key
+    nvidia_key = default_nvidia_key
     
     # Попытка получить токены пользователя
     async with async_session_maker() as session:
@@ -42,21 +42,23 @@ async def get_agent_config_for_user(
         for key_record in keys:
             try:
                 decrypted = encryptor.decrypt(key_record.encrypted_key)
-                if key_record.service_name == "huggingface":
-                    hf_token = decrypted
-                elif key_record.service_name == "ollama":
+                if key_record.service_name == "ollama":
                     ollama_key = decrypted
+                elif key_record.service_name == "nvidia":
+                    nvidia_key = decrypted
             except Exception:
                 pass
     
+    # Устанавливаем переменные окружения для использования в tools
     if ollama_key:
         os.environ["OLLAMA_API_KEY"] = ollama_key
+    if nvidia_key:
+        os.environ["NVIDIA_API_KEY"] = nvidia_key
 
     return AgentConfig(
         model_name=settings.DEFAULT_MODEL,
         base_url=settings.OLLAMA_BASE_URL,
         api_key=ollama_key,
-        hf_token=hf_token,
         temperature=0.7
     )
 

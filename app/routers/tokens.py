@@ -26,7 +26,7 @@ async def save_token(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if request.service_name not in ["huggingface", "ollama", "openai"]:
+    if request.service_name not in ["huggingface", "ollama", "openai", "groq", "nvidia"]:
         raise HTTPException(status_code=400, detail="Неподдерживаемый сервис")
     if not request.token or len(request.token) < 10:
         raise HTTPException(status_code=400, detail="Некорректный токен")

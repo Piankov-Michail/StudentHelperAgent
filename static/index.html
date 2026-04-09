@@ -96,7 +96,7 @@
                         <p id="chat-subtitle" class="text-xs text-gray-500 truncate">Готов к работе</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3"><select id="agent-selector" class="focus:outline-none"><option value="transcript">🎬 Транскрибация видео</option><option value="assistant">💬 Чат-помощник</option><option value="rag" disabled>🧠 GraphRAG (скоро)</option></select><span id="agent-description" class="text-xs text-gray-500 hidden md:block max-w-[200px] truncate">Создание конспектов из видео</span></div>
+                <div class="flex items-center gap-3"><select id="agent-selector" class="focus:outline-none"><option value="transcript">🎬 Транскрибация видео</option><option value="assistant">💬 Чат-помощник</option><option value="rag">🧠 GraphRAG</option></select><span id="agent-description" class="text-xs text-gray-500 hidden md:block max-w-[200px] truncate">Создание конспектов из видео</span></div>
                 <div class="flex items-center gap-2 flex-shrink-0"><button id="export-btn" class="btn-icon glass p-3 rounded-xl text-gray-400 hover:text-white" title="Экспорт"><i class="fas fa-copy"></i></button><button id="delete-chat-btn" class="btn-icon glass p-3 rounded-xl text-gray-400 hover:text-red-400" title="Удалить"><i class="fas fa-trash"></i></button></div>
             </header>
             
@@ -152,24 +152,35 @@
         <div class="glass-strong p-8 rounded-3xl w-full max-w-lg mx-4 shadow-2xl animate-fadeIn">
             <div class="flex items-center justify-between mb-6"><h3 class="text-2xl font-bold text-white">🔑 API Токены</h3><button id="close-settings" class="text-gray-400 hover:text-white btn-icon p-2"><i class="fas fa-times text-xl"></i></button></div>
             <div class="space-y-5">
-                <div><label class="block text-sm text-gray-400 mb-2">🤗 Hugging Face Token</label>
-                    <div class="relative">
-                        <input type="password" id="hf-token" placeholder="hf_..." class="w-full glass px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white">
-                        <button type="button" id="toggle-hf-token" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition p-2" title="Показать/скрыть">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Нужен для транскрибации видео через Whisper</p>
-                </div>
                 <div>
-                    <label class="block text-sm text-gray-400 mb-2">🦙 Ollama API Key <span class="text-gray-600">(опционально)</span></label>
+                    <label class="block text-sm text-gray-400 mb-2">🦙 Ollama API Key <span class="text-red-400">*</span></label>
                     <div class="relative">
-                        <input type="password" id="ollama-token" placeholder="ollama_..." class="w-full glass px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white">
+                        <input type="password" id="ollama-token" placeholder="ollama_..." class="w-full glass px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white" required>
                         <button type="button" id="toggle-ollama-token" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition p-2" title="Показать/скрыть">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Для использования локальных моделей Ollama</p>
+                    <p class="text-xs text-gray-500 mt-1">Обязательно для работы с LLM моделями</p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">⚡ Groq API Key</label>
+                    <div class="relative">
+                        <input type="password" id="groq-token" placeholder="gsk_..." class="w-full glass px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white">
+                        <button type="button" id="toggle-groq-token" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition p-2" title="Показать/скрыть">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Для быстрой транскрибации через Groq Whisper API. Получить ключ: <a href="https://console.groq.com/keys" target="_blank" class="text-blue-400 hover:text-blue-300 underline">console.groq.com</a></p>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">🚀 NVIDIA API Key <span class="text-gray-600">(опционально)</span></label>
+                    <div class="relative">
+                        <input type="password" id="nvidia-token" placeholder="nvapi-..." class="w-full glass px-4 py-3 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-white">
+                        <button type="button" id="toggle-nvidia-token" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition p-2" title="Показать/скрыть">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Для embeddings в GraphRAG. Получить ключ: <a href="https://build.nvidia.com/explore/discover" target="_blank" class="text-blue-400 hover:text-blue-300 underline">build.nvidia.com</a></p>
                 </div>
                 <div class="flex gap-3 pt-4"><button id="save-tokens-btn" class="flex-1 btn-primary py-3 rounded-xl font-semibold">Сохранить</button><button id="clear-tokens-btn" class="flex-1 glass py-3 rounded-xl font-semibold text-gray-300">Очистить</button></div>
                 <div id="token-status" class="text-sm text-center"></div>
@@ -177,10 +188,10 @@
         </div>
     </div>
 
-    <script defer src="/static/js/api.js?v=3"></script>
-    <script defer src="/static/js/auth.js?v=3"></script>
-    <script defer src="/static/js/file.js?v=3"></script>
-    <script defer src="/static/js/chat.js?v=3"></script>
-    <script defer src="/static/js/app.js?v=3"></script>
+    <script defer src="/static/js/api.js?v=4"></script>
+    <script defer src="/static/js/auth.js?v=4"></script>
+    <script defer src="/static/js/file.js?v=4"></script>
+    <script defer src="/static/js/chat.js?v=4"></script>
+    <script defer src="/static/js/app.js?v=4"></script>
 </body>
 </html>
