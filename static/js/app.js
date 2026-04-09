@@ -235,7 +235,7 @@ window.app = {
     // Agent selector
     const ag = document.getElementById('agent-selector');
     if(ag) {
-      ag.onchange = () => { window.state.currentAgentType = ag.value; document.getElementById('agent-description').textContent = {transcript:'🎬 Транскрибация + умный конспект', assistant:'💬 Обычный чат без файлов', rag:'🔮 Граф знаний (в разработке)'}[ag.value]||''; if(window.state.currentChatId) localStorage.setItem(`chat_${window.state.currentChatId}_agent`, ag.value); };
+      ag.onchange = () => { window.state.currentAgentType = ag.value; document.getElementById('agent-description').textContent = {transcript:'🎬 Транскрибация + умный конспект', assistant:'💬 Обычный чат без файлов', rag:'🧠 База знаний и поиск по конспектам'}[ag.value]||''; if(window.state.currentChatId) localStorage.setItem(`chat_${window.state.currentChatId}_agent`, ag.value); };
       ag.onchange();
     }
 

@@ -85,26 +85,38 @@ window.auth = {
     };
 
     // Settings modal - API tokens with toggle visibility
-    const hfTokenInput = document.getElementById('hf-token');
     const ollamaTokenInput = document.getElementById('ollama-token');
-    const toggleHfBtn = document.getElementById('toggle-hf-token');
+    const groqTokenInput = document.getElementById('groq-token');
+    const nvidiaTokenInput = document.getElementById('nvidia-token');
     const toggleOllamaBtn = document.getElementById('toggle-ollama-token');
+    const toggleGroqBtn = document.getElementById('toggle-groq-token');
+    const toggleNvidiaBtn = document.getElementById('toggle-nvidia-token');
     const saveTokensBtn = document.getElementById('save-tokens-btn');
     const clearTokensBtn = document.getElementById('clear-tokens-btn');
     const tokenStatus = document.getElementById('token-status');
+
+    // Check if all elements exist
+    if (!ollamaTokenInput || !groqTokenInput || !nvidiaTokenInput || !toggleOllamaBtn || !toggleGroqBtn || !toggleNvidiaBtn || !saveTokensBtn || !clearTokensBtn || !tokenStatus) {
+      console.error('Some token input elements not found');
+      return;
+    }
 
     // Load saved tokens from server
     const loadTokens = async () => {
       try {
         const tokens = await apiRequest('/tokens/');
-        const hfToken = tokens.find(t => t.service === 'huggingface');
         const ollamaToken = tokens.find(t => t.service === 'ollama');
+        const groqToken = tokens.find(t => t.service === 'groq');
+        const nvidiaToken = tokens.find(t => t.service === 'nvidia');
         
-        if (hfToken && hfToken.has_value) {
-          hfTokenInput.placeholder = '••••••••••••••••';
-        }
         if (ollamaToken && ollamaToken.has_value) {
           ollamaTokenInput.placeholder = '••••••••••••••••';
+        }
+        if (groqToken && groqToken.has_value) {
+          groqTokenInput.placeholder = '••••••••••••••••';
+        }
+        if (nvidiaToken && nvidiaToken.has_value) {
+          nvidiaTokenInput.placeholder = '••••••••••••••••';
         }
       } catch (e) {
         console.error('Failed to load tokens:', e);
@@ -112,21 +124,10 @@ window.auth = {
     };
 
     // Load tokens when settings modal opens
-    document.getElementById('settings-btn').addEventListener('click', loadTokens);
-
-    // Toggle visibility for HF token
-    toggleHfBtn.onclick = () => {
-      const icon = toggleHfBtn.querySelector('i');
-      if (hfTokenInput.type === 'password') {
-        hfTokenInput.type = 'text';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
-      } else {
-        hfTokenInput.type = 'password';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-      }
-    };
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', loadTokens);
+    }
 
     // Toggle visibility for Ollama token
     toggleOllamaBtn.onclick = () => {
@@ -142,25 +143,58 @@ window.auth = {
       }
     };
 
+    // Toggle visibility for Groq token
+    toggleGroqBtn.onclick = () => {
+      const icon = toggleGroqBtn.querySelector('i');
+      if (groqTokenInput.type === 'password') {
+        groqTokenInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        groqTokenInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    };
+
+    // Toggle visibility for NVIDIA token
+    toggleNvidiaBtn.onclick = () => {
+      const icon = toggleNvidiaBtn.querySelector('i');
+      if (nvidiaTokenInput.type === 'password') {
+        nvidiaTokenInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        nvidiaTokenInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    };
+
     // Save tokens to server
     saveTokensBtn.onclick = async () => {
-      const hfToken = hfTokenInput.value.trim();
       const ollamaToken = ollamaTokenInput.value.trim();
+      const groqToken = groqTokenInput.value.trim();
+      const nvidiaToken = nvidiaTokenInput.value.trim();
       
       try {
-        if (hfToken) {
-          await apiRequest('/tokens/', 'POST', { service_name: 'huggingface', token: hfToken });
-        }
         if (ollamaToken) {
           await apiRequest('/tokens/', 'POST', { service_name: 'ollama', token: ollamaToken });
+        }
+        if (groqToken) {
+          await apiRequest('/tokens/', 'POST', { service_name: 'groq', token: groqToken });
+        }
+        if (nvidiaToken) {
+          await apiRequest('/tokens/', 'POST', { service_name: 'nvidia', token: nvidiaToken });
         }
         
         tokenStatus.textContent = '✅ Токены сохранены';
         tokenStatus.className = 'text-sm text-center text-green-400';
         
         // Clear input fields after save
-        hfTokenInput.value = '';
         ollamaTokenInput.value = '';
+        groqTokenInput.value = '';
+        nvidiaTokenInput.value = '';
         
         setTimeout(() => { tokenStatus.textContent = ''; loadTokens(); }, 3000);
       } catch (err) {
@@ -173,13 +207,16 @@ window.auth = {
     // Clear tokens from server
     clearTokensBtn.onclick = async () => {
       try {
-        await apiRequest('/tokens/huggingface', 'DELETE');
         await apiRequest('/tokens/ollama', 'DELETE');
+        await apiRequest('/tokens/groq', 'DELETE');
+        await apiRequest('/tokens/nvidia', 'DELETE');
         
-        hfTokenInput.value = '';
         ollamaTokenInput.value = '';
-        hfTokenInput.placeholder = 'hf_...';
+        groqTokenInput.value = '';
+        nvidiaTokenInput.value = '';
         ollamaTokenInput.placeholder = 'ollama_...';
+        groqTokenInput.placeholder = 'gsk_...';
+        nvidiaTokenInput.placeholder = 'nvapi-...';
         
         tokenStatus.textContent = '🗑️ Токены удалены';
         tokenStatus.className = 'text-sm text-center text-gray-400';
